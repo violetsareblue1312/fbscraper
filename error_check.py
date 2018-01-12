@@ -31,30 +31,31 @@ def dated_dict_has_type_errors(dated_d, data_type):
 
 def has_errors(data):
 	utype = {}
+
+	utype['altname'] = str
+	utype['basic'] = dict
 	utype['checkins'] = None
-	utype['reviews'] = None
-	utype['quotes'] = str
-	utype['username'] = str
-	utype['possfam'] = str
-	utype['friends'] = str
+	utype['cities'] = list
+	utype['contact'] = dict
+	utype['details'] = list
+	utype['edu'] = list
+	utype['enabled'] = bool
+	utype['events'] = None
+	utype['family'] = dict
 	utype['followers'] = None
 	utype['following'] = None
+	utype['friends'] = str
 	utype['groups'] = str
-	utype['events'] = None
-	utype['likes'] = None
-	utype['name'] = str
-	utype['enabled'] = bool
-	utype['altname'] = str
 	utype['intro'] = str
-	utype['cities'] = list
-	utype['work'] = list
-	utype['edu'] = list
-	utype['romantic'] = list
-	utype['contact'] = dict
-	utype['basic'] = dict
-	utype['details'] = list
+	utype['likes'] = None
 	utype['milestones'] = list
-	utype['family'] = dict
+	utype['name'] = str
+	utype['possfam'] = str
+	utype['quotes'] = str
+	utype['reviews'] = None
+	utype['romantic'] = list
+	utype['username'] = str
+	utype['work'] = list
 
 	user_errors = set()
 	cfriends = 0
