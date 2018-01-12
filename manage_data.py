@@ -9,7 +9,6 @@ LONG_WAIT = 20
 USER_EXTRACT_ITEMS = {'enabled', 'name', 'altname', 'username', 'intro', 'cities', 'work', 'edu', 'romantic', 'contact', 'basic', 'details', 'milestones', 'family', 'possfam', 'friends', 'quotes', 'groups'}
 GROUP_EXTRACT_ITEMS = {'url', 'name', 'size', 'about', 'admins', 'members'}
 
-
 # dictionary whose keys are datetime objects
 # used to track the history of values of a variable
 # update function compares with most recent instance. Adds new key-value pair only when value has changed
@@ -384,7 +383,6 @@ class facebook_database:
 				None
 
 
-
 			time.sleep(LONG_WAIT)
 
 		self.save()
@@ -498,14 +496,3 @@ class facebook_database:
 			return driver
 		else:
 			return
-
-
-
-
-
-
-
-
-
-
-
