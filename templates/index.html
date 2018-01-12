@@ -1,0 +1,25 @@
+<doctype html>
+<head>
+    <title>Far Right Database</title>
+</head>
+<body>
+    <h1> Far Right Watch </h1>
+    <form action="/search">
+        <input type="text" name="search" value="{{value}}">
+        <input type="submit" value="Search">
+    </form>
+
+    <table>
+    {% for item in results %}
+    <tr>
+       <td class="c2"><a href="http://facebook.com/{{item.username}}" >{{item.name}} </a></td>
+       <td class="c2">Shitty friends:
+        {% for name, username in item.monitored.items() %}
+            <a href="http://facebook.com/{{username}}" >{{name}}</a>
+        {% endfor %}
+        </td>
+    </tr>
+    {% endfor %}
+    </table>
+
+</body>
