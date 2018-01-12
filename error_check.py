@@ -31,6 +31,16 @@ def dated_dict_has_type_errors(dated_d, data_type):
 
 def has_errors(data):
 	utype = {}
+	utype['possfam'] = str
+	utype['friends'] = str
+	utype['followers'] = None
+	utype['following'] = None
+	utype['groups'] = str
+	utype['events'] = None
+	utype['likes'] = None
+	utype['checkins'] = None
+	utype['reviews'] = None
+	utype['quotes'] = str
 	utype['username'] = str
 	utype['name'] = str
 	utype['enabled'] = bool
@@ -45,17 +55,7 @@ def has_errors(data):
 	utype['details'] = list
 	utype['milestones'] = list
 	utype['family'] = dict
-	utype['possfam'] = str
-	utype['friends'] = str
-	utype['followers'] = None
-	utype['following'] = None
-	utype['groups'] = str
-	utype['events'] = None
-	utype['likes'] = None
-	utype['checkins'] = None
-	utype['reviews'] = None
-	utype['quotes'] = str
-	
+
 	user_errors = set()
 	cfriends = 0
 	crfriends = 0
