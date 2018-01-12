@@ -1,0 +1,5 @@
+consts.py
+data*
+__pycache__
+.ipynb_checkpoints
+transfer_from_v1
