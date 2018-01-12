@@ -554,7 +554,7 @@ def extract_groups_via_search(soup):
     return groups
 
 # "core" items are those that can be extracted from any page of user's fb account
-# "core" items are 'enabled', 'username', 'name', and 'altname' 
+# "core" items are 'enabled', 'username', 'name', and 'altname'
 # returns enabled as Boolean and updates the input dictionary by extracting the "core" items listed in fields
 # user's fb page must be loaded (any page)
 def check_enabled_and_extract_core(data, soup, fields):
@@ -745,20 +745,8 @@ def extract_items_for_group(driver, fields, group_id):
     return data
 
 
-
-
-
-
-
-
-
-
-
 def main():
     return
-
-    
-
 
 
 # executes the program when we call it from the command line
