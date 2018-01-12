@@ -78,8 +78,6 @@ class dated_dict(dict):
 	def __call__(self):
 		return self[self.keydate()]
 
-
-
 class facebook_user:
 
 	# creates new instance of facebook_user class
