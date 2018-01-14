@@ -4,6 +4,8 @@ import time
 import pickle
 import extract_data
 
+VERSION = 1
+
 LONG_WAIT = 20
 
 USER_EXTRACT_ITEMS = {'enabled', 'name', 'altname', 'username', 'intro', 'cities', 'work', 'edu', 'romantic', 'contact', 'basic', 'details', 'milestones', 'family', 'possfam', 'friends', 'quotes', 'groups'}
@@ -95,13 +97,12 @@ class facebook_user:
 		if name != None and type(name) != str:
 			raise Exception("name must be a string")
 
-
 		self.id = profile_id
 		self.username = dated_dict(username)
 		self.name = dated_dict(name)
 		self.monitor = False
 
-		# lists of id numbers
+		# lists of instances of facebook_user / facebook_group
 		self.rev_friends = [] # people who list user as friend
 		self.rev_family = [] # people who list user as family
 		self.rev_possfam = [] # people who list user as friend and have same last name
@@ -132,22 +133,22 @@ class facebook_user:
 		self.milestones = dated_dict() # the timeline of key events listed on their about page
 
 		# list of dictionaries with keys 'name', 'relation' and when available 'id', 'username'
-		self.family = dated_dict(full_history = False)
+		self.family = dated_dict(full_history=False) # lists family members on Facebook as instances of facebook_user
+		self.family_details = dated_dict(full_history=False) # lists all family members, both on and off Facebook, together with relation
 
-		# list of id numbers
-		self.possfam = dated_dict(full_history = False) # friends they list who have same last name
-		self.friends = dated_dict(full_history = False) # friends they list
-		self.followers = dated_dict(full_history = False) # Not functioning yet
-		self.following = dated_dict(full_history = False) # Not functioning yet
-		self.groups = dated_dict(full_history = False) # FB groups they are a member of
-		self.events = dated_dict(full_history = False) # Not functioning yet
-		self.likes = dated_dict(full_history = False) # Not functioning yet
+		# list of instances of facebook classes
+		self.possfam = dated_dict(full_history=False) # friends they list who have same last name
+		self.friends = dated_dict(full_history=False) # friends they list
+		self.followers = dated_dict(full_history=False) # Not functioning yet
+		self.following = dated_dict(full_history=False) # Not functioning yet
+		self.groups = dated_dict(full_history=False) # FB groups they are a member of
+		self.events = dated_dict(full_history=False) # Not functioning yet
+		self.likes = dated_dict(full_history=False) # Not functioning yet
 
 
-		self.checkins = dated_dict(full_history = False) # Not functioning yet
-		self.reviews = dated_dict(full_history = False) # Not functioning yet
-		self.quotes = dated_dict(full_history = False) # quotes they list on their about page
-
+		self.checkins = dated_dict(full_history=False) # Not functioning yet
+		self.reviews = dated_dict(full_history=False) # Not functioning yet
+		self.quotes = dated_dict(full_history=False) # quotes they list on their about page
 
 class facebook_group:
 
@@ -173,7 +174,8 @@ class facebook_group:
 		self.name = dated_dict(name)
 		self.size = dated_dict(size)
 
-		self.rev_members = []
+		# list of instances of facebook_user
+		self.rev_members = [] # people who have this group in their groups list
 
 		self.set_monitor(monitor)
 
@@ -187,12 +189,13 @@ class facebook_group:
 			return
 
 		self.about = dated_dict()
+
+		# lists of instances of facebook_user class
 		self.admins = dated_dict(full_history = False)
 		self.members = dated_dict(full_history = False)
+
+		# lists info on when people were added to the group, who added them, etc
 		self.member_details = {}
-
-
-
 
 class facebook_database:
 
@@ -202,6 +205,113 @@ class facebook_database:
 		self.users = {} # dictionary where keys are user_id numbers and values are facebook_user objects
 		self.groups = {} # dictionary where keys are group_id numbers and values are facebook_group objects
 		self.file = file_name
+		self.version = VERSION
+
+	# called by pickle.dump
+	# to avoid recursion limit errors,
+	# changes instance pointers to id numbers
+	def __getstate__(self):
+		# we must build new state dictionary from scratch to avoid changing self
+		# we need to switch instance pointers to id numbers
+		# otherwise recursion limit errors are generated
+		switch = {
+			'friends',
+			'rev_friends',
+			'family',
+			'rev_family',
+			'possfam',
+			'rev_possfam',
+			'groups',
+			'rev_groups',
+			'members',
+			'rev_members'}
+
+		allusers = {} # new dictionary for fb users
+		for u in self.users.values():
+			newuser = facebook_user.__new__(facebook_user)
+			for item in u.__dict__.keys():
+				if item in switch:
+					old  = u.__dict__[item]
+					if type(old) == dated_dict:
+						new = dated_dict.__new__(dated_dict)
+						new.__dict__ = old.__dict__.copy()
+						new[old.keydate()] = [v.id for v in old()]
+					else:
+						new = [v.id for v in old]
+				else:
+					new = u.__dict__[item]
+				newuser.__dict__[item] = new
+			allusers[u.id] = newuser
+
+		allgroups = {} # new dictionary for fb groups
+		for g in self.groups.values():
+			newgroup = facebook_group.__new__(facebook_group)
+			for item in g.__dict__.keys():
+				if item in switch:
+					old  = g.__dict__[item]
+					if type(old) == dated_dict:
+						new = dated_dict.__new__(dated_dict)
+						new.__dict__ = old.__dict__.copy()
+						new[old.keydate()] = [v.id for v in old()]
+					else:
+						new = [v.id for v in old]
+				else:
+					new = g.__dict__[item]
+				newgroup.__dict__[item] = new
+			allgroups[g.id] = newgroup
+
+		data = {} # new dictionary for database
+		data['users'] = allusers
+		data['groups'] = allgroups
+		data['file'] = self.file
+		return data
+
+	# called by pickle.load
+	# changes id numbers back to instance pointers
+	# also implements version control, reformatting old data via reformat_data.py
+	def __setstate__(self, data):
+		if 'version' not in data.keys():
+			# need to reformat the previously saved data
+			# this is a one-time operation
+			self.__dict__ = data
+			import error_check
+			error_check.reformat(self, None)
+			return
+
+		# we need to switch id numbers back to instance pointers
+		switch = {
+			'friends',
+			'family',
+			'possfam',
+			'groups',
+			'members'}
+		rev_switch = {'rev_' + item for item in switch}
+
+		self.__dict__ = data
+
+		for u in self.users.values():
+			for item in u.__dict__.keys():
+				if item in rev_switch:
+					if item != 'rev_groups':
+						u.__dict__[item] = [self.users[v] for v in u.__dict__[item]]
+					else:
+						u.__dict__[item] = [self.groups[v] for v in u.__dict__[item]]
+				if item in switch:
+					obj = u.__dict__[item] # instance of dated_dict
+					if obj() != None:
+						if item != 'groups':
+							obj[obj.keydate()] = [self.users[v] for v in obj()]
+						else:
+							obj[obj.keydate()] = [self.groups[v] for v in obj()]
+
+		for g in self.groups.values():
+			for item in g.__dict__.keys():
+				if item in rev_switch:
+					g.__dict__[item] = [self.users[v] for v in g.__dict__[item]]
+				if item in switch:
+					obj = g.__dict__[item] # instance of dated_dict
+					if obj() != None:
+						obj[obj.keydate()] = [self.users[v] for v in obj()]
 
 	# saves the database to the file self.file_name + ".pkl"
 	# also saves a backup to the file self.file_name + "-backup.pkl"
@@ -297,6 +407,7 @@ class facebook_database:
 				print("-- " + item)
 
 		for userid in update_ids:
+			user = self.users[userid]
 			
 			if display:
 				print("Extracting data for " + userid)
@@ -309,33 +420,33 @@ class facebook_database:
 
 
 			if 'enabled' in newdata.keys():
-				self.users[userid].enabled.update(newdata['enabled'])
+				user.enabled.update(newdata['enabled'])
 			if 'username' in newdata.keys():
-				self.users[userid].username.update(newdata['username'])
+				user.username.update(newdata['username'])
 			if 'name' in newdata.keys():
-				self.users[userid].name.update(newdata['name'])
+				user.name.update(newdata['name'])
 			if 'altname' in newdata.keys():
-				self.users[userid].altname.update(newdata['altname'])
+				user.altname.update(newdata['altname'])
 			if 'intro' in newdata.keys():
-				self.users[userid].intro.update(newdata['intro'])
+				user.intro.update(newdata['intro'])
 			if 'cities' in newdata.keys():
-				self.users[userid].cities.update(newdata['cities'])
+				user.cities.update(newdata['cities'])
 			if 'work' in newdata.keys():
-				self.users[userid].work.update(newdata['work'])
+				user.work.update(newdata['work'])
 			if 'edu' in newdata.keys():
-				self.users[userid].edu.update(newdata['edu'])
+				user.edu.update(newdata['edu'])
 			if 'contact' in newdata.keys():
-				self.users[userid].contact.update(newdata['contact'])
+				user.contact.update(newdata['contact'])
 			if 'basic' in newdata.keys():
-				self.users[userid].basic.update(newdata['basic'])
+				user.basic.update(newdata['basic'])
 			if 'details' in newdata.keys():
-				self.users[userid].details.update(newdata['details'])
+				user.details.update(newdata['details'])
 			if 'romantic' in newdata.keys():
-				self.users[userid].romantic.update(newdata['romantic'])
+				user.romantic.update(newdata['romantic'])
 			if 'milestones' in newdata.keys():
-				self.users[userid].milestones.update(newdata['milestones'])
+				user.milestones.update(newdata['milestones'])
 			if 'quotes' in newdata.keys():
-				self.users[userid].quotes.update(newdata['quotes'])
+				user.quotes.update(newdata['quotes'])
 			if False and 'checkins' in newdata.keys():
 				None
 			if False and 'reviews' in newdata.keys():
@@ -343,34 +454,41 @@ class facebook_database:
 			if 'friends' in newdata.keys():
 				frlist = []
 				for fr in newdata['friends']:
-					frlist.append(fr['id'])
 					self.add_user(fr['id'], False, fr['username'], fr['name'])
-					if userid not in self.users[fr['id']].rev_friends:
-						self.users[fr['id']].rev_friends.append(userid)
-				self.users[userid].friends.update(frlist)
+					friend = self.users[fr['id']]
+					frlist.append(friend)
+					if user not in friend.rev_friends:
+						friend.rev_friends.append(user)
+				user.friends.update(frlist)
 			if 'possfam' in newdata.keys():
 				pflist = []
 				for pf in newdata['possfam']:
-					pflist.append(pf['id'])
 					self.add_user(pf['id'], False, pf['username'], pf['name'])
-					if userid not in self.users[pf['id']].rev_possfam:
-						self.users[pf['id']].rev_possfam.append(userid)
-				self.users[userid].possfam.update(pflist)
+					person = self.users[pf['id']]
+					pflist.append(person)
+					if user not in person.rev_possfam:
+						person.rev_possfam.append(user)
+				user.possfam.update(pflist)
 			if 'family' in newdata.keys():
+				falist = []
 				for fa in newdata['family']:
 					if 'id' in fa.keys():
 						self.add_user(fa['id'], False, fa['username'], fa['name'])
-						if userid not in self.users[fa['id']].rev_family:
-							self.users[fa['id']].rev_family.append(userid)
-				self.users[userid].family.update(newdata['family'])
+						fam = self.users[fa['id']]
+						falist.append(fam)
+						if user not in fam.rev_family:
+							fam.rev_family.append(user)
+				user.family.update(falist)
+				user.family_details.update(newdata['family'])
 			if 'groups' in newdata.keys():
 				glist = []
 				for g in newdata['groups']:
-					glist.append(g['id'])
 					self.add_group(g['id'], False, g['url'], g['name'], g['size'])
-					if userid not in self.groups[g['id']].rev_members:
-						self.groups[g['id']].rev_members.append(userid)
-				self.users[userid].groups.update(glist)
+					fbgroup = self.groups[g['id']]
+					glist.append(fbgroup)
+					if user not in fbgroup.rev_members:
+						fbgroup.rev_members.append(user)
+				user.groups.update(glist)
 			if False and 'likes' in newdata.keys():
 				None
 			if False and 'events' in newdata.keys():
@@ -464,6 +582,7 @@ class facebook_database:
 				print("-- " + item)
 
 		for groupid in group_ids:
+			group = self.groups[groupid]
 
 			if display:
 				print("Extracting data for " + groupid)
@@ -476,13 +595,14 @@ class facebook_database:
 
 			if 'members' in newdata.keys():
 				mlist = []
-				for user in newdata['members']:
-					mlist.append(user['id'])
-					self.groups[groupid].member_details[user['id']] = user['details']
-					self.add_user(user['id'], False, user['username'], user['name'])
-					if groupid not in self.users[user['id']].rev_groups:
-						self.users[user['id']].rev_groups.append(groupid)
-				self.groups[groupid].members.update(mlist)
+				for p in newdata['members']:
+					group.member_details[p['id']] = p['details']
+					self.add_user(p['id'], False, p['username'], p['name'])
+					person = self.users[p['id']]
+					mlist.append(person)
+					if group not in person.rev_groups:
+						person.rev_groups.append(group)
+				group.members.update(mlist)
 
 			time.sleep(LONG_WAIT)
 

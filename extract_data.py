@@ -135,6 +135,8 @@ def extract_cities(soup):
         else:
             citylist.append(city)
 
+    if citylist == ['No places to show']:
+        citylist = []
     return citylist
 
 # extracts work info as list of strings
