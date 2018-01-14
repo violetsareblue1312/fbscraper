@@ -2,6 +2,8 @@ import os
 import datetime
 import time
 import pickle
+from random import randint
+
 import extract_data
 
 VERSION = 1
@@ -110,6 +112,25 @@ class facebook_user:
 
 		self.set_monitor(monitor)
 
+	def __repr__(self):
+		if self.name() != None:
+			my_rep = 'facebook_user(' + self.id + ', ' + self.name() + ')'
+		else:
+			my_rep = 'facebook_user(' + self.id + ')'
+		return my_rep
+
+	# called by print and string commands
+	# a one-line summary of who the user / account is
+	def __str__(self, show_monitor=True):
+		if self.username() != None and self.name() != None:
+			end = ":" + self.username() + ": " + self.name()
+		else:
+			end = ''
+		if show_monitor:
+			return str(self.monitor) + ":" + self.id + end
+		else:
+			return self.id + ":" + end
+
 	# set the value of the monitor attribute
 	def set_monitor(self, monitor):
 		if self.monitor == monitor:
@@ -150,6 +171,160 @@ class facebook_user:
 		self.reviews = dated_dict(full_history=False) # Not functioning yet
 		self.quotes = dated_dict(full_history=False) # quotes they list on their about page
 
+	# returns all known friends as list of instances of facebook_user class
+	# uses both rev_friends and friends for optimal results
+	def all_friends(self):
+		if 'friends' in dir(self):
+			myf = self.friends()
+			if myf == None or myf == []:
+				return self.rev_friends
+			return list(set(self.rev_friends) | set(myf))
+		else:
+			return self.rev_friends
+
+	# returns all family as list
+	# uses both rev_family and family for optimal results
+	# when facebook_only == True, list items are instances of facebook_user class
+	# otherwise, list items are dictionaries
+	def all_family(self, facebook_only=True):
+		if 'family' in dir(self):
+			myf = self.family()
+			if myf == None or myf == []:
+				fb = self.rev_family
+			fb = list(set(self.rev_family) | set(myf))
+		else:
+			fb = self.rev_family
+
+		if facebook_only:
+			return fb
+
+		det = self.family_details()
+		for u in fb:
+			in_det = False
+			for p in det:
+				if 'id' in p.keys() and p['id'] == u.id:
+					in_det = True
+			if in_det == False:
+				det.append({'id' : u.id, 'name' : u.name(), 'username' : u.username()})
+		return det
+
+	# returns all possible family as list of instances of facebook_user class
+	# uses both rev_possfam and possfam for optimal results
+	def all_possfam(self):
+		if 'possfam' in dir(self):
+			mypf = self.possfam()
+			if mypf == None or mypf == []:
+				return self.rev_possfam
+			return list(set(self.rev_possfam) | set(mypf))
+		else:
+			return self.rev_possfam
+
+	# returns all groups as list of instances of facebook_group class
+	# uses both rev_groups and groups for optimal results
+	def all_groups(self):
+		if 'groups' in dir(self):
+			myg = self.groups()
+			if myg == None or myg == []:
+				return self.rev_groups
+			return list(set(self.rev_groups) | set(myg))
+		else:
+			return self.rev_groups
+
+	# returns a list of all known friends that are monitored
+	# list items are instances of facebook_user class
+	def monitored_friends(self):
+		l = [v for v in self.all_friends() if v.monitor]
+		return l
+
+	# returns a list of all known family that are monitored
+	# list items are instances of facebook_user class
+	def monitored_family(self):
+		l = [v for v in self.all_family() if v.monitor]
+		return l
+
+	# returns a list of all known possible family that are monitored
+	# list items are instances of facebook_user class
+	def monitored_possfam(self):
+		l = [v for v in self.all_possfam() if v.monitor]
+		return l
+
+	# returns a list of all groups that are monitored
+	# list items are instances of facebook_group class
+	def monitored_groups(self):
+		l = [g for g in self.all_groups() if g.monitor]
+		return l
+
+	# prints a brief summary of user's info
+	def summary(self):
+		print(self)
+
+		listed = set()
+		not_listed = set()
+		not_ext = set()
+
+		for item in {'cities', 'work', 'edu', 'family', 'possfam', 'friends', 'groups'}:
+			if item in dir(self) and self.__dict__[item]() != None:
+				if self.__dict__[item]() != []:
+					listed.add(item)
+				else:
+					not_listed.add(item)
+			else:
+				not_ext.add(item)
+
+		extracted = True
+		if len(listed.difference({'friends', 'groups'})) > 0:
+			print("Lists: " + str(listed.difference({'friends', 'groups'})))
+		else:
+			if 'enabled' not in dir(self) or True not in self.enabled.values():
+				print("Never successfully extracted data for user")
+				extracted = False
+		if len(not_listed) > 0 and extracted:
+			print("Not listed: " + str(not_listed))
+		if len(not_ext) > 0 and extracted:
+			print("Not extracted: " + str(not_ext))
+
+		if 'friends' in listed:
+			print("Friends: " + str(len(self.all_friends())) + ", monitored: " + str(len(self.monitored_friends())))
+		else:
+			print("Monitored friends: " + str(len(self.monitored_friends())))
+		famc = len(self.monitored_family())
+		if famc > 0:
+			print("Monitored family: " + str(famc))
+		pfc = len(self.monitored_possfam())
+		if pfc > 0:
+			print("Monitored possible family: " + str(pfc))
+		if 'groups' in listed:
+			print("Groups: " + str(len(self.all_groups())) + ", monitored: " + str(len(self.monitored_groups())))
+		else:
+			print("Monitored groups: " + str(len(self.monitored_groups())))
+
+	# prints all known monitored connections of user,
+	# up to display_bound many items
+	# display_bound may be set equal to None
+	def print_connections(self, display_bound=25):
+		print(self)
+
+		keylist = ['family', 'possfam', 'friends', 'groups']
+		items = {
+			'family' : self.monitored_family(),
+			'possfam' : self.monitored_possfam(),
+			'friends' : self.monitored_friends(),
+			'groups' : self.monitored_groups()
+			}
+
+		if display_bound == None:
+			display_bound = max({len(v) for v in items.values()})
+
+		for k in keylist:
+			v = items[k]
+			if len(v) > 0:
+				if len(v) <= display_bound:
+					print('------ Monitored ' + k + ' ------')
+					for x in v:
+						print(x.__str__(False))
+				else:
+					print('Monitored ' + k + ' count: ' + str(len(v)))
+
 class facebook_group:
 
 	# creates new instance of facebook_group class
@@ -179,6 +354,30 @@ class facebook_group:
 
 		self.set_monitor(monitor)
 
+	def __repr__(self):
+		if self.name() != None:
+			name = str(self.name().encode('ascii', 'ignore'))[2:-1]
+			my_rep = 'facebook_group(' + self.id + ', ' + name + ')'
+		else:
+			my_rep = 'facebook_group(' + self.id + ')'
+		return my_rep
+
+	# called by print and string commands
+	# a one-line summary of what the group is
+	def __str__(self, show_monitor=True):
+		if self.name() != None:
+			name = ": " + (str(self.name().encode('ascii', 'ignore'))[2:-1])
+		else:
+			name = ''
+		if self.url() != None and self.url().isdigit() == False:
+			url = ":" + self.url()
+		else:
+			url = ''
+		if show_monitor:
+			return str(self.monitor) + ":" + self.id + url + name
+		else:
+			return self.id + url + name
+
 	# set the value of the monitor attribute
 	def set_monitor(self, monitor):
 		if self.monitor == monitor:
@@ -197,19 +396,95 @@ class facebook_group:
 		# lists info on when people were added to the group, who added them, etc
 		self.member_details = {}
 
+	# returns all known members of group as list of instances of facebook_user class
+	# uses rev_members and members for optimal results
+	def all_members(self):
+		if 'members' not in dir(self):
+			return self.rev_members
+		mymem = self.members()
+		if mymem == None or mymem == []:
+			return self.rev_members
+		allmem = set(self.rev_members) | set(mymem)
+		return list(allmem)
+
+	# returns all members that are monitored as list
+	# list items are instances of facebook_user class
+	def monitored_members(self):
+		l = [u for u in self.all_members() if u.monitor]
+		return l
+
+	# returns boolean value indicating if all members are monitored
+	def members_are_monitored(self):
+		allmon = True
+		for u in self.all_members():
+			if u.monitor == False:
+				allmon = False
+		return allmon
+
+	# prints a brief summary of group's info
+	def summary(self):
+		print(self)
+		if self.size() != None:
+			print("Size: " + str(self.size()))
+		else:
+			print("Group size has not been extracted")
+
+		if self.monitor:
+			if self.members() == None or self.members() == []:
+				print("Group members have not been extracted")
+				print("Reverse members: " + str(len(self.rev_members)))
+			else:
+				print("Monitored members: " + str(len(self.monitored_members())))
+		else:
+			print("Reverse members: " + str(len(self.rev_members)))
+		mon = self.members_are_monitored()
+		print("All members monitored: " + str(mon))
+
+	# prints all known monitored connections of group,
+	# up to display_bound
+	# display_bound may be set to None
+	def print_connections(self, display_bound=50):
+		print(self)
+
+		mm = self.monitored_members()
+		if display_bound == None:
+			display_bound = len(mm)
+
+		if len(mm) <= display_bound:
+			print("------ Monitored members ------")
+			for u in mm:
+				print(u.__str__(False))
+		else:
+			print("Monitored member count: " + str(len(mm)))
+
 class facebook_database:
 
 	# creates new instance of facebook_database class
 	# file_name is the file name for saving the database
-	def __init__(self, file_name = None):
+	def __init__(self, file_name=None):
 		self.users = {} # dictionary where keys are user_id numbers and values are facebook_user objects
 		self.groups = {} # dictionary where keys are group_id numbers and values are facebook_group objects
 		self.file = file_name
 		self.version = VERSION
 
+	def __repr__(self):
+		if self.file != None:
+			return "facebook_database(" + self.file + ".pkl, version " + str(self.version) + ")"
+		else:
+			return "unsaved facebook_database"
+
+	# called by print and string commands
+	# a one-line summary of what the database is
+	def __str__(self):
+		size = str(len(self.users)) + " users, " + str(len(self.groups)) + " groups"
+		if self.file != None:
+			return self.file + ".pkl, version " + str(self.version) + ", " + size
+		else:
+			return "facebook_database version " + str(self.version) + ", " + size
+
 	# called by pickle.dump
 	# to avoid recursion limit errors,
-	# changes instance pointers to id numbers
+	# changes instance pointers to id numbers for pickling
 	def __getstate__(self):
 		# we must build new state dictionary from scratch to avoid changing self
 		# we need to switch instance pointers to id numbers
@@ -614,3 +889,29 @@ class facebook_database:
 			return driver
 		else:
 			return
+
+	# returns a random user as instance of facebook_user
+	def random_user(self, monitor=True):
+		if monitor:
+			potential = []
+			for u in self.users.values():
+				if u.monitor:
+					potential.append(u)
+		else:
+			potential = list(self.users.values())
+
+		i = randint(0, len(potential))
+		return potential[i]
+
+	# returns a random group as instance of facebook_group
+	def random_group(self, monitor=True):
+		if monitor:
+			potential = []
+			for g in self.groups.values():
+				if g.monitor:
+					potential.append(g)
+		else:
+			potential = list(self.groups.values())
+
+		i = randint(0, len(potential))
+		return potential[i]
