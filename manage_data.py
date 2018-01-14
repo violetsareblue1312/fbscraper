@@ -1,4 +1,5 @@
 import os
+import shutil
 import datetime
 import time
 import pickle
@@ -594,7 +595,7 @@ class facebook_database:
 		if self.file == None:
 			raise Exception("file path not set")
 		pickle.dump(self, open(self.file + ".pkl", 'wb'))
-		pickle.dump(self, open(self.file + "-backup.pkl", 'wb'))
+		shutil.copy(self.file + ".pkl", self.file + "-backup.pkl")
 		return
 
 	# save database in 'data-archive' subfolder with a time-stamped file name
