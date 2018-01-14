@@ -277,8 +277,9 @@ class facebook_user:
 			print("Lists: " + str(listed.difference({'friends', 'groups'})))
 		else:
 			if 'enabled' not in dir(self) or True not in self.enabled.values():
-				print("Never successfully extracted data for user")
 				extracted = False
+				if self.monitor:
+					print("Never successfully extracted data for user")
 		if len(not_listed) > 0 and extracted:
 			print("Not listed: " + str(not_listed))
 		if len(not_ext) > 0 and extracted:
