@@ -130,7 +130,7 @@ class facebook_user:
 		if show_monitor:
 			return str(self.monitor) + ":" + self.id + end
 		else:
-			return self.id + ":" + end
+			return self.id + end
 
 	# set the value of the monitor attribute
 	def set_monitor(self, monitor):
