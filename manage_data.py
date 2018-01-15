@@ -4,6 +4,7 @@ import datetime
 import time
 import pickle
 from random import randint
+from collections import defaultdict
 
 import extract_data
 
@@ -13,6 +14,10 @@ LONG_WAIT = 20
 
 USER_EXTRACT_ITEMS = {'enabled', 'name', 'altname', 'username', 'intro', 'cities', 'work', 'edu', 'romantic', 'contact', 'basic', 'details', 'milestones', 'family', 'possfam', 'friends', 'quotes', 'groups'}
 GROUP_EXTRACT_ITEMS = {'url', 'name', 'size', 'about', 'admins', 'members'}
+
+USER_CONTACT_KEYS = {'Neighborhood', 'Address', 'Facebook', 'Email', 'Social Links', 'Websites', 'PGP Public Key', 'Mobile Phones'}
+HOST_NAMES = {'LinkedIn', 'Twitter', 'AIM', 'Skype', 'YouTube', 'VK', 'Instagram', 'Windows Live Messenger', 'Snapchat', 'Spotify', 'Yahoo! Messenger'}
+USER_BASIC_KEYS = {'Political Views', 'Gender', 'Pronoun', 'Religious Views', 'Interested In', 'Languages', 'Birthday'}
 
 # dictionary whose keys are datetime objects
 # used to track the history of values of a variable
@@ -300,6 +305,10 @@ class facebook_user:
 		else:
 			print("Monitored groups: " + str(len(self.monitored_groups())))
 
+		non_fb = self.accounts_off_facebook()
+		for k, v in non_fb.items():
+			print(k + ": " + ", ".join(v))
+
 	# prints all known monitored connections of user,
 	# up to display_bound many items
 	# display_bound may be set equal to None
@@ -326,6 +335,32 @@ class facebook_user:
 						print(x.__str__(False))
 				else:
 					print('Monitored ' + k + ' count: ' + str(len(v)))
+
+	# retrieves non-facebook accounts from contact attribute
+	# when host_name == None, returns dictionary with
+	#	keys = host names and values = lists of accounts on host site
+	# when host_name is string from HOST_NAME,
+	#	returns list of accounts on that host site
+	def accounts_off_facebook(self, host_name=None):
+		accounts = defaultdict(list)
+		if 'contact' in dir(self) and self.contact() != None:
+			if 'Social Links' in self.contact().keys():
+				soc_list = self.contact()['Social Links']
+				for text in soc_list:
+					cut = 1 + text.find('(')
+					host = text[cut : -1]
+					handle = text[: cut -2]
+					accounts[host].append(handle)
+		# eliminate repeats:
+		for k, v in accounts.items():
+			accounts[k] = list(set(v))
+		if host_name == None:
+			return dict(accounts)
+		else:
+			return accounts[host_name]
+
+
+
 
 class facebook_group:
 
