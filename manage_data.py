@@ -646,7 +646,7 @@ class facebook_database:
 			os.makedirs("data-archive")
 		pickle.dump(self, open("data-archive/" + self.file + " " + now_string + ".pkl", 'wb'))
 		if type(annotation) == str:
-			ann = open("data-archive/" + self.file + " " + now_string + "log.txt", 'w')
+			ann = open("data-archive/" + self.file + " " + now_string + " log.txt", 'w')
 			ann.write(annotation)
 			ann.close()
 
