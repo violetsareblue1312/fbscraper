@@ -633,7 +633,8 @@ class facebook_database:
 		return
 
 	# save database in 'data-archive' subfolder with a time-stamped file name
-	def archive_save(self):
+	# when a string is passed as annotation, its saved in a corresponding text file
+	def archive_save(self, annotation=None):
 		now = datetime.datetime.now()
 		now_string = str(now)
 		now_string = now_string.replace(':', '-')
@@ -644,6 +645,10 @@ class facebook_database:
 		if not os.path.isdir("data-archive"):
 			os.makedirs("data-archive")
 		pickle.dump(self, open("data-archive/" + self.file + " " + now_string + ".pkl", 'wb'))
+		if type(annotation) == str:
+			ann = open("data-archive/" + self.file + " " + now_string + "log.txt", 'w')
+			ann.write(annotation)
+			ann.close()
 
 	# add a user to the database
 	def add_user(self, user_id, monitor, username = None, name = None):
