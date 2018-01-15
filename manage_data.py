@@ -305,10 +305,6 @@ class facebook_user:
 		else:
 			print("Monitored groups: " + str(len(self.monitored_groups())))
 
-		non_fb = self.accounts_off_facebook()
-		for k, v in non_fb.items():
-			print(k + ": " + ", ".join(v))
-
 	# prints all known monitored connections of user,
 	# up to display_bound many items
 	# display_bound may be set equal to None

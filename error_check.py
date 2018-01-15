@@ -245,7 +245,8 @@ def has_errors(fb):
 		errors['groups'] = group_errors
 		print(errors)
 		return True
-		# when no cities could be extracted, data was previously saved as list ['No places to show']
+
+# when no cities could be extracted, data was previously saved as list ['No places to show']
 # this changes past saved data, changing ['No places to show'] to []
 def correct_cities_info(fb):
 	for u in fb.users.values():
