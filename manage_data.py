@@ -341,7 +341,7 @@ class facebook_user:
 	#	keys = host names and values = lists of accounts on host site
 	# when host_name is string from HOST_NAME,
 	#	returns list of accounts on that host site
-	def accounts_off_facebook(self, host_name=None):
+	def social_media(self, host_name=None):
 		accounts = defaultdict(list)
 		if 'contact' in dir(self) and self.contact() != None:
 			if 'Social Links' in self.contact().keys():
@@ -358,9 +358,6 @@ class facebook_user:
 			return dict(accounts)
 		else:
 			return accounts[host_name]
-
-
-
 
 class facebook_group:
 
@@ -576,6 +573,7 @@ class facebook_database:
 		data['users'] = allusers
 		data['groups'] = allgroups
 		data['file'] = self.file
+		data['version'] = self.version
 		return data
 
 	# called by pickle.load
