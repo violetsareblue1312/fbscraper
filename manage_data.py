@@ -445,6 +445,8 @@ class facebook_group:
 
 	# returns boolean value indicating if all members are monitored
 	def members_are_monitored(self):
+		if 'members' not in dir(self) or self.members() in {None, []}:
+			return False
 		allmon = True
 		for u in self.all_members():
 			if u.monitor == False:
