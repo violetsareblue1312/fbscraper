@@ -334,6 +334,13 @@ class facebook_user:
 				else:
 					print('Monitored ' + k + ' count: ' + str(len(v)))
 
+	# returns number of friends in user_set plus number
+	# of groups in group_set
+	def connection_count(self, user_set=set(), group_set=set()):
+		cu = len(set(self.all_friends()) & user_set)
+		cg = len(set(self.all_groups()) & group_set)
+		return cu + cg
+
 	# retrieves non-facebook accounts from contact attribute
 	# when host_name == None, returns dictionary with
 	#	keys = host names and values = lists of accounts on host site
@@ -701,6 +708,28 @@ class facebook_database:
 			if adduser == True:
 				hits.append(u)
 		return hits
+
+	# return sorted list of users not in user_set,
+	# sorted by descending number of connections to user_set + group_set
+	# when type(monitor) == bool, get users only with that monitor attribute
+	def outsiders_most_connected_to(self, user_set=set(), group_set=set(), monitor=None):
+		score = lambda u : u.connection_count(user_set, group_set)
+		if type(monitor) == bool:
+			unsorted = {u for u in self.users.values() if u.monitor == monitor and u not in user_set}
+		else:
+			unsorted = {u for u in self.users.values() if u not in user_set}
+		return sorted(unsorted, key=score, reverse=True)
+
+	# return sorted list of users,
+	# sorted by descending number of connections to user_set + group_set
+	# when type(monitor) == bool, get users only with that monitor attribute
+	def users_most_connected_to(self, user_set = set(), group_set = set(), monitor=None):
+		score = lambda u : u.connection_count(user_set, group_set)
+		if type(monitor) == bool:
+			unsorted = {u for u in self.users.values() if u.monitor == monitor}
+		else:
+			unsorted = {u for u in self.users.values()}
+		return sorted(unsorted, key=score, reverse=True)
 
 	# extracts items in update_items for every user_id in update_ids
 	# updates and saves the database
