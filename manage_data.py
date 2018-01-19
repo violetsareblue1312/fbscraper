@@ -7,12 +7,13 @@ from random import randint
 from collections import defaultdict
 
 import extract_data
+import error_check
 
-VERSION = 1
+VERSION = "1.1"
 
 LONG_WAIT = 20
 
-USER_EXTRACT_ITEMS = {'enabled', 'name', 'altname', 'username', 'intro', 'cities', 'work', 'edu', 'romantic', 'contact', 'basic', 'details', 'milestones', 'family', 'possfam', 'friends', 'quotes', 'groups'}
+USER_EXTRACT_ITEMS = {'enabled', 'name', 'altname', 'username', 'profile_pic', 'intro', 'cities', 'work', 'edu', 'romantic', 'contact', 'basic', 'details', 'milestones', 'family', 'possfam', 'friends', 'quotes', 'groups'}
 GROUP_EXTRACT_ITEMS = {'url', 'name', 'size', 'about', 'admins', 'members'}
 
 USER_CONTACT_KEYS = {'Neighborhood', 'Address', 'Facebook', 'Email', 'Social Links', 'Websites', 'PGP Public Key', 'Mobile Phones'}
@@ -148,6 +149,7 @@ class facebook_user:
 
 		self.enabled = dated_dict() # True if FB account is enabled. False if FB account is (possibly temporarily) disabled
 
+		self.profile_pic = dated_dict() # FB id number of their profile picture
 		self.altname = dated_dict() # Optional alternate name listed beneath their name at bottom of their cover photo
 		self.intro = dated_dict() # intro section on their main page
 		self.cities = dated_dict() # cities they list having lived in
@@ -502,7 +504,7 @@ class facebook_database:
 
 	def __repr__(self):
 		if self.file != None:
-			return "facebook_database(" + self.file + ".pkl, version " + str(self.version) + ")"
+			return "facebook_database(" + self.file + ".pkl, version " + self.version + ")"
 		else:
 			return "unsaved facebook_database"
 
@@ -511,9 +513,9 @@ class facebook_database:
 	def __str__(self):
 		size = str(len(self.users)) + " users, " + str(len(self.groups)) + " groups"
 		if self.file != None:
-			return self.file + ".pkl, version " + str(self.version) + ", " + size
+			return self.file + ".pkl, version " + self.version + ", " + size
 		else:
-			return "facebook_database version " + str(self.version) + ", " + size
+			return "facebook_database version " + self.version + ", " + size
 
 	# called by pickle.dump
 	# to avoid recursion limit errors,
@@ -583,7 +585,6 @@ class facebook_database:
 			# need to reformat the previously saved data
 			# this is a one-time operation
 			self.__dict__ = data
-			import error_check
 			error_check.reformat(self, None)
 			return
 
@@ -621,6 +622,10 @@ class facebook_database:
 					obj = g.__dict__[item] # instance of dated_dict
 					if obj() != None:
 						obj[obj.keydate()] = [self.users[v] for v in obj()]
+
+		# do further version updates as needed
+		if self.version == 1:
+			error_check.reformat(self, 1)
 
 	# saves the database to the file self.file_name + ".pkl"
 	# also saves a backup to the file self.file_name + "-backup.pkl"
@@ -739,6 +744,8 @@ class facebook_database:
 				user.username.update(newdata['username'])
 			if 'name' in newdata.keys():
 				user.name.update(newdata['name'])
+			if 'profile_pic' in newdata.keys():
+				user.profile_pic.update(newdata['profile_pic'])
 			if 'altname' in newdata.keys():
 				user.altname.update(newdata['altname'])
 			if 'intro' in newdata.keys():

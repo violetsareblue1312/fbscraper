@@ -1,5 +1,7 @@
 # import libraries
 import time
+import os
+import wget
 
 # import web scraping
 from selenium import webdriver
@@ -110,6 +112,32 @@ def extract_altname(soup):
     else:
         alt_name = ""
     return alt_name
+
+# extracts and returns the facebook id number of the profile picture
+# (or 'video' if the user has a video instead of a picture)
+# also saves the profile picture to "pics/" + [picture id] + ".jpg" if the file doesn't already exist
+# Facebook page of user must be loaded (any page)
+def extract_profile_pic(driver):
+    pic = driver.find_element_by_class_name('profilePic')
+    pic.click()
+    time.sleep(5)
+
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    stage = soup.find('div', attrs = {'class' : 'stage'})
+    if not stage:
+        esc_tag = soup.find('a', attrs = {'data-tooltip-content' : "Press Esc to close"})
+        img_tag = esc_tag.parent.find('img', attrs = {'src' : True})
+    else:
+        if stage.parent.find('video'):
+            driver.back()
+            return 'video'
+        img_tag = stage.parent.find('img', attrs = {'src' : True})
+    url = img_tag.get('src')
+    pic_id = url.split('_')[1]
+    if not os.path.isfile("pics/" + pic_id + ".jpg"):
+        wget.download(url, "pics/" + pic_id + ".jpg")
+    driver.back()
+    return pic_id
 
 # extracts the intro bio (as string) from left column of main fb page
 # main facebook page of user must be loaded
@@ -472,9 +500,8 @@ def extract_groups_via_profile(soup):
 # scrolls to the bottom of the group list on search page
 # search page with list of groups must be loaded to driver
 def scroll_groups_via_search(driver):
-
-    Bool = True
-    while Bool:
+    not_finished = True
+    while not_finished:
         # scroll to bottom of page
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         # wait
@@ -485,10 +512,8 @@ def scroll_groups_via_search(driver):
         penult = container.parent.contents[-2]
         end = penult.find('div', id = "browse_end_of_results_footer")
         if end:
-            Bool = False
-
+            not_finished = False
     return
-
 
 # extracts the groups listed on facebook search page
 # extracts only the groups currently loaded in the browser
@@ -556,10 +581,11 @@ def extract_groups_via_search(soup):
     return groups
 
 # "core" items are those that can be extracted from any page of user's fb account
-# "core" items are 'enabled', 'username', 'name', and 'altname'
+# "core" items are 'enabled', 'username', 'name', 'altname, and 'profile_pic"
 # returns enabled as Boolean and updates the input dictionary by extracting the "core" items listed in fields
 # user's fb page must be loaded (any page)
-def check_enabled_and_extract_core(data, soup, fields):
+def check_enabled_and_extract_core(data, driver, fields):
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
     enabled = extract_enabled(soup)
     if 'enabled' in fields:
         data['enabled'] = enabled
@@ -571,6 +597,8 @@ def check_enabled_and_extract_core(data, soup, fields):
         data['name'] = extract_name(soup)
     if 'altname' in fields:
         data['altname'] = extract_altname(soup)
+    if 'profile_pic' in fields:
+        data['profile_pic'] = extract_profile_pic(driver)
     return True
 
 def url_to_field_dic():
@@ -610,14 +638,13 @@ def extract_items_for_user(driver, fields, user):
 
     enabled = None
     for url, able in url_dic.items():
-        needed = fields.difference(set(data.keys()))
-        items = needed.intersection(able)
+        needed = fields - set(data.keys())
+        items = needed & able
 
         if items and enabled != False:
             driver.get("https://www.facebook.com/" + user + url)
             if enabled == None:
-                soup = BeautifulSoup(driver.page_source, "html.parser")
-                enabled = check_enabled_and_extract_core(data, soup, fields)
+                enabled = check_enabled_and_extract_core(data, driver, fields)
             if enabled:
                 for item in items:
                     if item in need_to_scroll:
@@ -626,12 +653,10 @@ def extract_items_for_user(driver, fields, user):
                     data[item] = eval("extract_" + item + "(soup)")
             time.sleep(SHORT_WAIT)
 
-
     if 'possfam' in fields and enabled != False:
         driver.get("https://www.facebook.com/" + user + "/friends")
         if enabled == None:
-            soup = BeautifulSoup(driver.page_source, "html.parser")
-            enabled = check_enabled_and_extract_core(data, soup, fields)
+            enabled = check_enabled_and_extract_core(data, driver, fields)
         if enabled:
             if 'name' in data.keys():
                 name = data['name']
@@ -641,31 +666,28 @@ def extract_items_for_user(driver, fields, user):
             data['possfam'] = extract_possfam(driver, name)
         time.sleep(SHORT_WAIT)
 
+    if enabled == None and set(fields) & {'enabled', 'username', 'name', 'altname', 'profile_pic'}:
+        driver.get("https://www.facebook.com/" + user)
+        enabled = check_enabled_and_extract_core(data, driver, fields)
+        if 'profile_pic' not in fields:
+            time.sleep(SHORT_WAIT)
+
     if 'groups' in fields and enabled != False:
         driver.get("https://www.facebook.com/search/" + user + "/groups")
         soup = BeautifulSoup(driver.page_source, "html.parser")
-        if str(soup).find("Sorry, we couldn't understand this search.") != -1:
-            enabled = False
+        # commented-out code below works but is not currently needed
+        # if str(soup).find("Sorry, we couldn't understand this search.") != -1:
+            #enabled = False
         if soup.find('div', id = "empty_result_error"):
-            enabled = True
+            # enabled = True # this works but is not currently needed
             data['groups'] = []
         container = soup.find('div', id = "BrowseResultsContainer")
         if container:
-            enabled = True
+            # enabled = True
             scroll_groups_via_search(driver)
             soup = BeautifulSoup(driver.page_source, "html.parser")
             data['groups'] = extract_groups_via_search(soup)
         time.sleep(SHORT_WAIT)
-
-    if 'enabled' in fields and enabled == None:
-        driver.get("https://www.facebook.com/" + user)
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        enabled = check_enabled_and_extract_cor(data, soup, fields)
-        time.sleep(SHORT_WAIT)
-
-    if 'enabled' in fields:
-        data['enabled'] = enabled
-
 
     return data
 

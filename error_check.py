@@ -288,14 +288,25 @@ def change_ids_to_pointers(fb):
 			if g.members() != None:
 				g.members[g.members.keydate()] = [fb.users[pid] for pid in g.members()]
 
+def create_profile_pic_attributes(fb):
+	for u in fb.users.values():
+		if u.monitor:
+			u.profile_pic = manage_data.dated_dict()
+
 # reformats data that has no assigned version (the oldest data)
 def no_version(fb):
 	correct_cities_info(fb)
 	change_ids_to_pointers(fb)
 	fb.version = 1
 
+def from_version_1(fb):
+	create_profile_pic_attributes(fb)
+	fb.version = "1.1"
+
 # this method is auto called by facebook_database.__setstate__ during unpickling of data
 # reformats old versions of data to make them up-to-date
 def reformat(fb, version):
 	if version == None:
 		no_version(fb)
+	if version == 1:
+		from_version_1(fb)
