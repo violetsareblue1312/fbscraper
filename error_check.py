@@ -59,6 +59,7 @@ def has_errors(fb):
 		'milestones' : list,
 		'name' : str,
 		'possfam' : manage_data.facebook_user,
+		'profile_pic' : str,
 		'quotes' : str,
 		'reviews' : None,
 		'romantic' : list,
