@@ -5,6 +5,7 @@ import time
 import pickle
 from random import randint
 from collections import defaultdict
+from selenium import webdriver
 
 import extract_data
 import error_check
@@ -19,6 +20,54 @@ GROUP_EXTRACT_ITEMS = {'url', 'name', 'size', 'about', 'admins', 'members'}
 USER_CONTACT_KEYS = {'Neighborhood', 'Address', 'Facebook', 'Email', 'Social Links', 'Websites', 'PGP Public Key', 'Mobile Phones'}
 HOST_NAMES = {'LinkedIn', 'Twitter', 'AIM', 'Skype', 'YouTube', 'VK', 'Instagram', 'Windows Live Messenger', 'Snapchat', 'Spotify', 'Yahoo! Messenger'}
 USER_BASIC_KEYS = {'Political Views', 'Gender', 'Pronoun', 'Religious Views', 'Interested In', 'Languages', 'Birthday'}
+
+# emulates selenium.webdriver
+# has added features for easy integration with facebook_database
+class facebookDriver():
+
+	def __init__(self, driver=None):
+		self._driver = driver
+
+	def __repr__(self):
+		return "facebookDriver"
+
+	def __dir__(self):
+		d1 = dir(webdriver.chrome.webdriver.WebDriver)
+		d2 = object.__dir__(self)
+		return list(set(d1) | set(d2))
+
+	def __getattribute__(self, name):
+		if name != '_driver':
+			return object.__getattribute__(self, name)
+		if object.__getattribute__(self, '_driver') == None:
+			self._driver = extract_data.get_logged_in_driver()
+		return object.__getattribute__(self, '_driver')
+
+	def __getattr__(self, name):
+		if hasattr(webdriver.chrome.webdriver.WebDriver, name):
+			return getattr(self._driver, name)
+		else:
+			raise AttributeError("%s does not have attribute %s" % (self, name))
+
+	def start(self):
+		self._driver # calls __getattribute__ and auto logs-in
+
+	# Not functional yet
+	# returns currently viewed entity as object from facebook_database
+	def get_entity(self):
+		driver = self._driver
+		if driver.current_url.find(".com/groups") != -1:
+			'get group'
+		else:
+			'try get user'
+		return None
+
+	# Not functional yet
+	# Adds currently viewed entity to facebook database
+	def add_entity(self, monitor=True, window_tab=0):
+		return None
+
+driver = facebookDriver()
 
 # dictionary whose keys are datetime objects
 # used to track the history of values of a variable
@@ -364,6 +413,9 @@ class facebook_user:
 		else:
 			return accounts[host_name]
 
+	def show_in_browser(self):
+		driver.get("https://www.facebook.com/" + self.id)
+
 class facebook_group:
 
 	# creates new instance of facebook_group class
@@ -498,6 +550,9 @@ class facebook_group:
 				print(u.__str__(False))
 		else:
 			print("Monitored member count: " + str(len(mm)))
+
+	def show_in_browser(self):
+		driver.get("https://www.facebook.com/groups/" + self.id)
 
 class facebook_database:
 
@@ -634,6 +689,8 @@ class facebook_database:
 		if self.version == 1:
 			error_check.reformat(self, 1)
 
+		self.driver = driver
+
 	# saves the database to the file self.file_name + ".pkl"
 	# also saves a backup to the file self.file_name + "-backup.pkl"
 	def save(self):
@@ -724,14 +781,7 @@ class facebook_database:
 	# extracts items in update_items for every user_id in update_ids
 	# updates and saves the database
 	# when display == True, prints status updates during execution
-	# if driver == None then it will return selenium.webdriver object
-	def update_users(self, update_ids, update_items, driver = None, display = True):
-		if driver == None:
-			driver = extract_data.get_logged_in_driver()
-			return_driver = True
-		else:
-			return_driver = False
-
+	def update_users(self, update_ids, update_items=USER_EXTRACT_ITEMS, display=True):
 		for userid in update_ids:
 			if userid not in self.users:
 				raise Exception(userid + " is not in the database yet")
@@ -744,111 +794,114 @@ class facebook_database:
 			for item in update_items:
 				print("-- " + item)
 
-		for userid in update_ids:
-			user = self.users[userid]
-			
+		i = 0
+		while 10*i < len(update_ids):
 			if display:
-				print("Extracting data for " + userid)
-			try:
-				newdata = extract_data.extract_items_for_user(driver, update_items, userid)
-			except:
+				print('')
+				print("Batch " + str(i))
+			batch = update_ids[10*i: min(10*(i+1), len(update_ids))]
+			i += 1
+
+			for userid in batch:
+				user = self.users[userid]
+			
 				if display:
-					print("Failed to extract data.")
-				newdata = {}
+					print("Extracting data for " + userid)
+				try:
+					newdata = extract_data.extract_items_for_user(driver, update_items, userid)
+				except:
+					if display:
+						print("Failed to extract data.")
+					newdata = {}
 
 
-			if 'enabled' in newdata.keys():
-				user.enabled.update(newdata['enabled'])
-			if 'username' in newdata.keys():
-				user.username.update(newdata['username'])
-			if 'name' in newdata.keys():
-				user.name.update(newdata['name'])
-			if 'profile_pic' in newdata.keys():
-				user.profile_pic.update(newdata['profile_pic'])
-			if 'altname' in newdata.keys():
-				user.altname.update(newdata['altname'])
-			if 'intro' in newdata.keys():
-				user.intro.update(newdata['intro'])
-			if 'cities' in newdata.keys():
-				user.cities.update(newdata['cities'])
-			if 'work' in newdata.keys():
-				user.work.update(newdata['work'])
-			if 'edu' in newdata.keys():
-				user.edu.update(newdata['edu'])
-			if 'contact' in newdata.keys():
-				user.contact.update(newdata['contact'])
-			if 'basic' in newdata.keys():
-				user.basic.update(newdata['basic'])
-			if 'details' in newdata.keys():
-				user.details.update(newdata['details'])
-			if 'romantic' in newdata.keys():
-				user.romantic.update(newdata['romantic'])
-			if 'milestones' in newdata.keys():
-				user.milestones.update(newdata['milestones'])
-			if 'quotes' in newdata.keys():
-				user.quotes.update(newdata['quotes'])
-			if False and 'checkins' in newdata.keys():
-				None
-			if False and 'reviews' in newdata.keys():
-				None
-			if 'friends' in newdata.keys():
-				frlist = []
-				for fr in newdata['friends']:
-					self.add_user(fr['id'], False, fr['username'], fr['name'])
-					friend = self.users[fr['id']]
-					frlist.append(friend)
-					if user not in friend.rev_friends:
-						friend.rev_friends.append(user)
-				user.friends.update(frlist)
-			if 'possfam' in newdata.keys():
-				pflist = []
-				for pf in newdata['possfam']:
-					self.add_user(pf['id'], False, pf['username'], pf['name'])
-					person = self.users[pf['id']]
-					pflist.append(person)
-					if user not in person.rev_possfam:
-						person.rev_possfam.append(user)
-				user.possfam.update(pflist)
-			if 'family' in newdata.keys():
-				falist = []
-				for fa in newdata['family']:
-					if 'id' in fa.keys():
-						self.add_user(fa['id'], False, fa['username'], fa['name'])
-						fam = self.users[fa['id']]
-						falist.append(fam)
-						if user not in fam.rev_family:
-							fam.rev_family.append(user)
-				user.family.update(falist)
-				user.family_details.update(newdata['family'])
-			if 'groups' in newdata.keys():
-				glist = []
-				for g in newdata['groups']:
-					self.add_group(g['id'], False, g['url'], g['name'], g['size'])
-					fbgroup = self.groups[g['id']]
-					glist.append(fbgroup)
-					if user not in fbgroup.rev_members:
-						fbgroup.rev_members.append(user)
-				user.groups.update(glist)
-			if False and 'likes' in newdata.keys():
-				None
-			if False and 'events' in newdata.keys():
-				None
-			if False and 'followers' in newdata.keys():
-				None
-			if False and 'following' in newdata.keys():
-				None
+				if 'enabled' in newdata.keys():
+					user.enabled.update(newdata['enabled'])
+				if 'username' in newdata.keys():
+					user.username.update(newdata['username'])
+				if 'name' in newdata.keys():
+					user.name.update(newdata['name'])
+				if 'profile_pic' in newdata.keys():
+					user.profile_pic.update(newdata['profile_pic'])
+				if 'altname' in newdata.keys():
+					user.altname.update(newdata['altname'])
+				if 'intro' in newdata.keys():
+					user.intro.update(newdata['intro'])
+				if 'cities' in newdata.keys():
+					user.cities.update(newdata['cities'])
+				if 'work' in newdata.keys():
+					user.work.update(newdata['work'])
+				if 'edu' in newdata.keys():
+					user.edu.update(newdata['edu'])
+				if 'contact' in newdata.keys():
+					user.contact.update(newdata['contact'])
+				if 'basic' in newdata.keys():
+					user.basic.update(newdata['basic'])
+				if 'details' in newdata.keys():
+					user.details.update(newdata['details'])
+				if 'romantic' in newdata.keys():
+					user.romantic.update(newdata['romantic'])
+				if 'milestones' in newdata.keys():
+					user.milestones.update(newdata['milestones'])
+				if 'quotes' in newdata.keys():
+					user.quotes.update(newdata['quotes'])
+				if False and 'checkins' in newdata.keys():
+					None
+				if False and 'reviews' in newdata.keys():
+					None
+				if 'friends' in newdata.keys():
+					frlist = []
+					for fr in newdata['friends']:
+						self.add_user(fr['id'], False, fr['username'], fr['name'])
+						friend = self.users[fr['id']]
+						frlist.append(friend)
+						if user not in friend.rev_friends:
+							friend.rev_friends.append(user)
+					user.friends.update(frlist)
+				if 'possfam' in newdata.keys():
+					pflist = []
+					for pf in newdata['possfam']:
+						self.add_user(pf['id'], False, pf['username'], pf['name'])
+						person = self.users[pf['id']]
+						pflist.append(person)
+						if user not in person.rev_possfam:
+							person.rev_possfam.append(user)
+					user.possfam.update(pflist)
+				if 'family' in newdata.keys():
+					falist = []
+					for fa in newdata['family']:
+						if 'id' in fa.keys():
+							self.add_user(fa['id'], False, fa['username'], fa['name'])
+							fam = self.users[fa['id']]
+							falist.append(fam)
+							if user not in fam.rev_family:
+								fam.rev_family.append(user)
+					user.family.update(falist)
+					user.family_details.update(newdata['family'])
+				if 'groups' in newdata.keys():
+					glist = []
+					for g in newdata['groups']:
+						self.add_group(g['id'], False, g['url'], g['name'], g['size'])
+						fbgroup = self.groups[g['id']]
+						glist.append(fbgroup)
+						if user not in fbgroup.rev_members:
+							fbgroup.rev_members.append(user)
+					user.groups.update(glist)
+				if False and 'likes' in newdata.keys():
+					None
+				if False and 'events' in newdata.keys():
+					None
+				if False and 'followers' in newdata.keys():
+					None
+				if False and 'following' in newdata.keys():
+					None
 
 
-			time.sleep(LONG_WAIT)
+				time.sleep(LONG_WAIT)
 
-		self.save()
-		if display:
-			print("Completed and saved")
-
-		if return_driver:
-			return driver
-		else:
-			return
+			self.save()
+			if display:
+				print("Saved")
 
 	# add a group to the database
 	def add_group(self, group_id, monitor, group_url = None, name = None, size = None):
@@ -913,14 +966,7 @@ class facebook_database:
 	# extracts items in update_items for every group_id in group_ids
 	# updates and saves the database
 	# when display == True, prints status updates during execution
-	# if driver == None then it will return selenium.webdriver object
-	def update_groups(self, group_ids, update_items, driver = None, display = True):
-		if driver == None:
-			driver = extract_data.get_logged_in_driver()
-			return_driver = True
-		else:
-			return_driver = False
-
+	def update_groups(self, group_ids, update_items={'members'}, display=True):
 		for groupid in group_ids:
 			if groupid not in self.groups:
 				raise Exception(groupid + " is not in the database yet")
@@ -933,39 +979,42 @@ class facebook_database:
 			for item in update_items:
 				print("-- " + item)
 
-		for groupid in group_ids:
-			group = self.groups[groupid]
-
+		i = 0
+		while 10*i < len(group_ids):
 			if display:
-				print("Extracting data for " + groupid)
-			try:
-				newdata = extract_data.extract_items_for_group(driver, update_items, groupid)
-			except:
+				print('')
+				print("Batch " + str(i))
+			batch = group_ids[10*i : min(10*(i+1), len(group_ids))]
+			i += 1
+
+			for groupid in batch:
+				group = self.groups[groupid]
+
 				if display:
-					print("Failed to extract data.")
-				newdata = {}
+					print("Extracting data for " + groupid)
+				try:
+					newdata = extract_data.extract_items_for_group(driver, update_items, groupid)
+				except:
+					if display:
+						print("Failed to extract data.")
+					newdata = {}
 
-			if 'members' in newdata.keys():
-				mlist = []
-				for p in newdata['members']:
-					group.member_details[p['id']] = p['details']
-					self.add_user(p['id'], False, p['username'], p['name'])
-					person = self.users[p['id']]
-					mlist.append(person)
-					if group not in person.rev_groups:
-						person.rev_groups.append(group)
-				group.members.update(mlist)
+				if 'members' in newdata.keys():
+					mlist = []
+					for p in newdata['members']:
+						group.member_details[p['id']] = p['details']
+						self.add_user(p['id'], False, p['username'], p['name'])
+						person = self.users[p['id']]
+						mlist.append(person)
+						if group not in person.rev_groups:
+							person.rev_groups.append(group)
+					group.members.update(mlist)
 
-			time.sleep(LONG_WAIT)
+				time.sleep(LONG_WAIT)
 
-		self.save()
-		if display:
-			print("Completed and saved")
-
-		if return_driver:
-			return driver
-		else:
-			return
+			self.save()
+			if display:
+				print("Saved")
 
 	# returns a random user as instance of facebook_user
 	def random_user(self, monitor=True):
