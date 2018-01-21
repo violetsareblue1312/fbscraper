@@ -709,26 +709,16 @@ class facebook_database:
 				hits.append(u)
 		return hits
 
-	# return sorted list of users not in user_set,
-	# sorted by descending number of connections to user_set + group_set
-	# when type(monitor) == bool, get users only with that monitor attribute
-	def outsiders_most_connected_to(self, user_set=set(), group_set=set(), monitor=None):
-		score = lambda u : u.connection_count(user_set, group_set)
-		if type(monitor) == bool:
-			unsorted = {u for u in self.users.values() if u.monitor == monitor and u not in user_set}
-		else:
-			unsorted = {u for u in self.users.values() if u not in user_set}
-		return sorted(unsorted, key=score, reverse=True)
-
 	# return sorted list of users,
 	# sorted by descending number of connections to user_set + group_set
 	# when type(monitor) == bool, get users only with that monitor attribute
-	def users_most_connected_to(self, user_set = set(), group_set = set(), monitor=None):
+	# when exclude_user_set == True, only users not in user_set are returned
+	def users_most_connected_to(self, user_set = set(), group_set = set(), monitor=None, exclude_user_set=True):
 		score = lambda u : u.connection_count(user_set, group_set)
 		if type(monitor) == bool:
-			unsorted = {u for u in self.users.values() if u.monitor == monitor}
+			unsorted = {u for u in self.users.values() if u.monitor == monitor and not (u in user_set and exclude_user_set)}
 		else:
-			unsorted = {u for u in self.users.values()}
+			unsorted = {u for u in self.users.values() if not (u in user_set and exclude_user_set)}
 		return sorted(unsorted, key=score, reverse=True)
 
 	# extracts items in update_items for every user_id in update_ids
@@ -907,6 +897,18 @@ class facebook_database:
 			if addgroup == True:
 				hits.append(g)
 		return hits
+
+	# return sorted list of groups,
+	# sorted by descending number of connections to user_set
+	# when type(monitor) == bool, get groups only with that monitor attribute
+	# excludes groups from the set 'exclude'
+	def groups_most_connected_to(self, user_set = set(), monitor=None, exclude = set()):
+		score = lambda g : len(user_set & set(g.all_members()))
+		if type(monitor) == bool:
+			unsorted = {g for g in self.groups.values() if g.monitor == monitor and g not in exclude}
+		else:
+			unsorted = {g for g in self.groups.values() if g not in exclude}
+		return sorted(unsorted, key=score, reverse=True)
 
 	# extracts items in update_items for every group_id in group_ids
 	# updates and saves the database
